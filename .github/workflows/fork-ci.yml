@@ -1,0 +1,45 @@
+name: fork-ci
+
+# Fork-only: runs upstream's CI gates against any branch on demand, so a branch can be
+# verified on a runner before a pull request exists. Never merged upstream.
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: branch or SHA to test
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_ref }}
+      - name: checked-out SHA
+        run: echo "checked-out SHA $(git rev-parse HEAD)"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - run: go mod download
+      - run: go build -v ./...
+      - run: go vet ./...
+      - run: go test -v ./... -coverprofile=coverage.txt
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_ref }}
+      - name: checked-out SHA
+        run: echo "checked-out SHA $(git rev-parse HEAD)"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - uses: golangci/golangci-lint-action@v9.2.0
+        with:
+          version: v2.12.2
